@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { useTravelContext } from '../context/TravelContext';
-import { Send, Loader2, MapPin, DollarSign, Users, Compass, Brain } from 'lucide-react';
+import { Send, Loader2, MapPin, DollarSign, Users, Compass, Brain, LightbulbIcon } from 'lucide-react';
 
 const ChatInterface = () => {
   const {
@@ -20,6 +20,7 @@ const ChatInterface = () => {
     message: string;
     timestamp: Date;
     isThinking?: boolean;
+    isReasoning?: boolean;
   }[]>([
     {
       sender: 'assistant',
@@ -43,14 +44,14 @@ const ChatInterface = () => {
       },
     ]);
     
-    // Add thinking indicator
+    // Add reasoning indicator
     setChatHistory((prev) => [
       ...prev,
       {
         sender: 'assistant',
-        message: "Analyzing your request with OpenAI's reasoning technology...",
+        message: "Applying deep reasoning to research your travel query...",
         timestamp: new Date(),
-        isThinking: true,
+        isReasoning: true,
       },
     ]);
     
@@ -70,9 +71,9 @@ const ChatInterface = () => {
   useEffect(() => {
     if (travelResponse && !isQuerying) {
       setChatHistory((prev) => {
-        // Remove the last message if it was a thinking message
+        // Remove the last message if it was a reasoning message
         const newHistory = [...prev];
-        if (newHistory.length > 0 && newHistory[newHistory.length - 1].isThinking) {
+        if (newHistory.length > 0 && (newHistory[newHistory.length - 1].isThinking || newHistory[newHistory.length - 1].isReasoning)) {
           newHistory.pop();
         }
         
@@ -112,8 +113,8 @@ const ChatInterface = () => {
   return (
     <div id="assistant" className="container mx-auto px-6 md:px-8 py-20">
       <div className="text-center mb-12">
-        <span className="inline-block py-1 px-3 rounded-full text-sm font-medium bg-ocean-100 text-ocean-800 mb-4">
-          AI-Powered Reasoning Technology
+        <span className="inline-block py-1 px-3 rounded-full text-sm font-medium bg-purple-100 text-purple-800 mb-4">
+          OpenAI o3-mini Reasoning Technology
         </span>
         <h2 className="text-3xl md:text-4xl font-bold mb-4">
           Your Personal Travel Planner
@@ -138,14 +139,21 @@ const ChatInterface = () => {
                   className={`max-w-[80%] rounded-2xl px-4 py-3 ${
                     chat.sender === 'user'
                       ? 'bg-ocean-500 text-white rounded-tr-none'
-                      : chat.isThinking
+                      : chat.isReasoning
                       ? 'bg-purple-100 text-purple-800 rounded-tl-none'
+                      : chat.isThinking
+                      ? 'bg-blue-100 text-blue-800 rounded-tl-none'
                       : 'bg-gray-100 text-gray-800 rounded-tl-none'
                   }`}
                 >
-                  {chat.isThinking ? (
+                  {chat.isReasoning ? (
                     <div className="flex items-center gap-2">
-                      <Brain className="w-4 h-4 text-purple-500" />
+                      <LightbulbIcon className="w-4 h-4 text-purple-500" />
+                      <p>{chat.message}</p>
+                    </div>
+                  ) : chat.isThinking ? (
+                    <div className="flex items-center gap-2">
+                      <Brain className="w-4 h-4 text-blue-500" />
                       <p>{chat.message}</p>
                     </div>
                   ) : (
@@ -155,8 +163,10 @@ const ChatInterface = () => {
                     className={`text-xs mt-1 ${
                       chat.sender === 'user' 
                         ? 'text-white/70' 
-                        : chat.isThinking
+                        : chat.isReasoning
                         ? 'text-purple-500'
+                        : chat.isThinking
+                        ? 'text-blue-500'
                         : 'text-gray-500'
                     }`}
                   >
@@ -169,11 +179,11 @@ const ChatInterface = () => {
               </div>
             ))}
             
-            {isQuerying && !chatHistory.some(chat => chat.isThinking) && (
+            {isQuerying && !chatHistory.some(chat => chat.isThinking || chat.isReasoning) && (
               <div className="flex justify-start">
                 <div className="bg-purple-100 rounded-2xl rounded-tl-none px-4 py-3 flex items-center gap-2">
                   <Loader2 className="w-4 h-4 animate-spin text-purple-500" />
-                  <span className="text-purple-800">Researching the best options for you using OpenAI's reasoning technology...</span>
+                  <span className="text-purple-800">Applying advanced reasoning to find the best travel options...</span>
                 </div>
               </div>
             )}
@@ -186,7 +196,7 @@ const ChatInterface = () => {
             {suggestions.map((suggestion, index) => (
               <button
                 key={index}
-                className="flex items-center gap-1 whitespace-nowrap px-3 py-1.5 bg-white rounded-full text-xs border border-gray-200 hover:border-ocean-200 hover:bg-ocean-50 transition-colors"
+                className="flex items-center gap-1 whitespace-nowrap px-3 py-1.5 bg-white rounded-full text-xs border border-gray-200 hover:border-purple-200 hover:bg-purple-50 transition-colors"
                 onClick={() => handleSuggestionClick(suggestion.text)}
               >
                 {suggestion.icon}
@@ -201,14 +211,14 @@ const ChatInterface = () => {
               ref={inputRef}
               type="text"
               placeholder="Ask about your Dominican Republic trip..."
-              className="flex-1 rounded-full px-4 py-2 bg-gray-100 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-ocean-300 focus:border-transparent transition-all"
+              className="flex-1 rounded-full px-4 py-2 bg-gray-100 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-purple-300 focus:border-transparent transition-all"
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               disabled={isQuerying}
             />
             <button
               type="submit"
-              className="rounded-full w-10 h-10 flex items-center justify-center bg-ocean-500 text-white hover:bg-ocean-600 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+              className="rounded-full w-10 h-10 flex items-center justify-center bg-purple-600 text-white hover:bg-purple-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
               disabled={!message.trim() || isQuerying}
             >
               {isQuerying ? (

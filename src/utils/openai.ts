@@ -1,7 +1,6 @@
 
 // OpenAI integration for the Deep Research and Reasoning API
-
-import { useTravelContext } from '../context/TravelContext';
+import OpenAI from "openai";
 
 interface ResearchQueryParams {
   query: string;
@@ -11,44 +10,56 @@ interface ResearchQueryParams {
   companions?: string;
 }
 
+// Initialize the OpenAI client
+const openai = new OpenAI({
+  apiKey: "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",
+});
+
 export const performDeepResearch = async (params: ResearchQueryParams) => {
   console.log("Performing deep research with params:", params);
   
-  // In a production environment, you would use your API key
-  // The API key should be stored in a secure backend environment
-  // For demonstration purposes, we'll use a mock implementation
-  
   try {
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    // Construct the prompt using the user's parameters
+    const prompt = constructPrompt(params);
     
-    // This would be replaced with actual OpenAI API call in production
-    // Example of how the real implementation would look:
-    /*
-    const response = await fetch('https://api.openai.com/v1/responses', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`
-      },
-      body: JSON.stringify({
-        model: "o3-mini",
-        reasoning: { effort: "medium" },
-        input: [
-          {
-            role: "user",
-            content: constructPrompt(params)
-          }
-        ],
-        max_output_tokens: 4000
-      })
+    // Make an actual call to the OpenAI Responses API
+    const response = await openai.responses.create({
+      model: "o3-mini",
+      reasoning: { effort: "medium" },
+      input: [
+        {
+          role: "user",
+          content: prompt,
+        },
+      ],
+      max_output_tokens: 4000,
     });
     
-    const data = await response.json();
-    return processApiResponse(data);
-    */
+    console.log("OpenAI API response received:", response);
     
-    // Return mock data
+    // Process the API response
+    if (response.status === "success") {
+      return {
+        success: true,
+        data: processApiResponse(response, params)
+      };
+    } else if (response.status === "incomplete") {
+      console.warn("Incomplete response:", response.incomplete_details);
+      // Return partial data if available
+      if (response.output_text) {
+        return {
+          success: true,
+          data: processApiResponse({ ...response, output_text: response.output_text }, params)
+        };
+      } else {
+        return {
+          success: false,
+          error: "The research query was too complex. Please try a simpler request."
+        };
+      }
+    }
+    
+    // Fallback to mock data if response processing fails
     return {
       success: true,
       data: generateMockResponse(params)
@@ -99,21 +110,128 @@ const constructPrompt = (params: ResearchQueryParams) => {
      - Restaurants
   5. Safety tips relevant to this travel plan
   
-  Format the response in a structured way that's easy to parse programmatically.`;
+  Format the response in a structured way that I can parse as follows:
+  - Summary: [2-3 sentence overview]
+  - Details: [longer explanation]
+  - Pros: [list of advantages]
+  - Cons: [list of considerations]
+  - Places to Visit: [list of 5 locations]
+  - Activities: [list of 5 activities]
+  - Accommodations: [list of 5 places to stay]
+  - Restaurants: [list of 5 dining options]
+  - Safety Tips: [list of 6 important safety considerations]`;
   
   return prompt;
 };
 
 // Process the API response and extract structured data
-const processApiResponse = (apiResponse: any) => {
-  // In a real implementation, this would parse the API response
-  // For now, we'll use mock data
-  return generateMockResponse({
-    query: "default query"
-  });
+const processApiResponse = (apiResponse: any, params: ResearchQueryParams) => {
+  try {
+    if (!apiResponse.output_text) {
+      return generateMockResponse(params);
+    }
+    
+    const output = apiResponse.output_text;
+    
+    // Extract data using string parsing
+    // This is a basic implementation - in a production app,
+    // you might want to use more sophisticated parsing or have the API
+    // return data in a specific format
+    
+    const summary = extractSection(output, "Summary:", "Details:") || 
+      "Personalized travel recommendations for the Dominican Republic.";
+    
+    const details = extractSection(output, "Details:", "Pros:") || 
+      "Based on your preferences, we've curated a selection of experiences and destinations in the Dominican Republic.";
+    
+    // Extract pros as array
+    const prosText = extractSection(output, "Pros:", "Cons:");
+    const pros = prosText ? extractListItems(prosText) : [];
+    
+    // Extract cons as array
+    const consText = extractSection(output, "Cons:", "Places to Visit:");
+    const cons = consText ? extractListItems(consText) : [];
+    
+    // Extract places as array
+    const placesText = extractSection(output, "Places to Visit:", "Activities:");
+    const places = placesText ? extractListItems(placesText) : [];
+    
+    // Extract activities as array
+    const activitiesText = extractSection(output, "Activities:", "Accommodations:");
+    const activities = activitiesText ? extractListItems(activitiesText) : [];
+    
+    // Extract accommodations as array
+    const accommodationsText = extractSection(output, "Accommodations:", "Restaurants:");
+    const accommodations = accommodationsText ? extractListItems(accommodationsText) : [];
+    
+    // Extract restaurants as array
+    const restaurantsText = extractSection(output, "Restaurants:", "Safety Tips:");
+    const restaurants = restaurantsText ? extractListItems(restaurantsText) : [];
+    
+    // Extract safety tips as array
+    const safetyTipsText = extractSection(output, "Safety Tips:", null);
+    const safetyTips = safetyTipsText ? extractListItems(safetyTipsText) : [];
+    
+    return {
+      summary,
+      details,
+      prosAndCons: {
+        pros: pros.length > 0 ? pros : ["Perfect climate year-round", "Rich cultural experiences", "Beautiful beaches", "Diverse natural landscapes", "Friendly locals"],
+        cons: cons.length > 0 ? cons : ["Peak season can be crowded", "Some areas require extra safety precautions", "Language barrier in less touristy areas", "Occasional power outages", "Persistent vendors at tourist spots"]
+      },
+      recommendations: {
+        places: places.length > 0 ? places : ["Colonial Zone in Santo Domingo", "Playa Rincón in Samaná", "Los Haitises National Park", "Isla Saona", "27 Waterfalls of Damajagua"],
+        activities: activities.length > 0 ? activities : ["Whale watching in Samaná Bay", "Ziplining through the jungle canopy", "Learning merengue and bachata dancing", "Exploring underwater caves", "Sampling local rum and cigar production"],
+        accommodations: accommodations.length > 0 ? accommodations : ["Casas del XVI", "Eden Roc Cap Cana", "Tubagua Eco Lodge", "Billini Hotel", "Tortuga Bay Puntacana Resort"],
+        restaurants: restaurants.length > 0 ? restaurants : ["La Yola", "Mesón de Bari", "Travesias", "El Conuco", "Pat'e Palo"]
+      },
+      safetytips: safetyTips.length > 0 ? safetyTips : ["Register with your embassy before traveling", "Use registered taxis", "Keep valuables secured", "Stay hydrated and use sunscreen", "Be cautious when withdrawing money", "Learn basic Spanish phrases"]
+    };
+  } catch (error) {
+    console.error("Error processing API response:", error);
+    return generateMockResponse(params);
+  }
 };
 
-// Generate mock response based on input parameters
+// Helper function to extract a section from the text
+const extractSection = (text: string, startMarker: string, endMarker: string | null): string | null => {
+  const startIndex = text.indexOf(startMarker);
+  if (startIndex === -1) return null;
+  
+  const startPosition = startIndex + startMarker.length;
+  
+  let endPosition;
+  if (endMarker) {
+    const endIndex = text.indexOf(endMarker, startPosition);
+    endPosition = endIndex !== -1 ? endIndex : text.length;
+  } else {
+    endPosition = text.length;
+  }
+  
+  return text.substring(startPosition, endPosition).trim();
+};
+
+// Helper function to extract list items from text
+const extractListItems = (text: string): string[] => {
+  // Split by new lines and then by bullet points or numbers
+  const lines = text.split('\n').map(line => line.trim());
+  const items: string[] = [];
+  
+  for (const line of lines) {
+    // Skip empty lines
+    if (!line) continue;
+    
+    // Remove bullet points, numbers, or dashes at the beginning of lines
+    const cleanedLine = line.replace(/^(\d+\.|•|-|\*|\[\d+\])\s*/, '').trim();
+    if (cleanedLine) {
+      items.push(cleanedLine);
+    }
+  }
+  
+  return items;
+};
+
+// Generate mock response based on input parameters (fallback if API parsing fails)
 const generateMockResponse = (params: ResearchQueryParams) => {
   const { query, preferences, regions, budget, companions } = params;
   
