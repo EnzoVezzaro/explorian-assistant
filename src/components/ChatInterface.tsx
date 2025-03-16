@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { useTravelContext } from '../context/TravelContext';
-import { Send, Loader2, MapPin, DollarSign, Users, Compass } from 'lucide-react';
+import { Send, Loader2, MapPin, DollarSign, Users, Compass, Brain } from 'lucide-react';
 
 const ChatInterface = () => {
   const {
@@ -19,10 +19,11 @@ const ChatInterface = () => {
     sender: 'user' | 'assistant';
     message: string;
     timestamp: Date;
+    isThinking?: boolean;
   }[]>([
     {
       sender: 'assistant',
-      message: "Hello! I'm your Dominican Republic travel assistant. What kind of trip are you planning? You can ask me for recommendations on beaches, activities, or specific regions like Punta Cana or Santo Domingo.",
+      message: "Hello! I'm your Dominican Republic travel assistant powered by OpenAI reasoning technology. What kind of trip are you planning? You can ask me for recommendations on beaches, activities, or specific regions like Punta Cana or Santo Domingo.",
       timestamp: new Date(),
     },
   ]);
@@ -42,6 +43,17 @@ const ChatInterface = () => {
       },
     ]);
     
+    // Add thinking indicator
+    setChatHistory((prev) => [
+      ...prev,
+      {
+        sender: 'assistant',
+        message: "Analyzing your request with OpenAI's reasoning technology...",
+        timestamp: new Date(),
+        isThinking: true,
+      },
+    ]);
+    
     // Submit query to get response
     submitTravelQuery(message.trim());
     
@@ -54,17 +66,26 @@ const ChatInterface = () => {
     messageEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatHistory]);
 
-  // Add assistant response when travelResponse changes
+  // Replace thinking message with response when travelResponse changes
   useEffect(() => {
     if (travelResponse && !isQuerying) {
-      setChatHistory((prev) => [
-        ...prev,
-        {
-          sender: 'assistant',
-          message: travelResponse.summary,
-          timestamp: new Date(),
-        },
-      ]);
+      setChatHistory((prev) => {
+        // Remove the last message if it was a thinking message
+        const newHistory = [...prev];
+        if (newHistory.length > 0 && newHistory[newHistory.length - 1].isThinking) {
+          newHistory.pop();
+        }
+        
+        // Add the actual response
+        return [
+          ...newHistory,
+          {
+            sender: 'assistant',
+            message: travelResponse.summary,
+            timestamp: new Date(),
+          },
+        ];
+      });
     }
   }, [travelResponse, isQuerying]);
 
@@ -79,6 +100,7 @@ const ChatInterface = () => {
     { icon: <DollarSign className="w-3 h-3" />, text: "Budget-friendly activities" },
     { icon: <Users className="w-3 h-3" />, text: "Family-friendly resorts" },
     { icon: <Compass className="w-3 h-3" />, text: "Hidden gems in Samaná" },
+    { icon: <Brain className="w-3 h-3" />, text: "Plan my week-long vacation" },
   ];
 
   const handleSuggestionClick = (suggestion: string) => {
@@ -91,13 +113,13 @@ const ChatInterface = () => {
     <div id="assistant" className="container mx-auto px-6 md:px-8 py-20">
       <div className="text-center mb-12">
         <span className="inline-block py-1 px-3 rounded-full text-sm font-medium bg-ocean-100 text-ocean-800 mb-4">
-          AI-Powered Assistance
+          AI-Powered Reasoning Technology
         </span>
         <h2 className="text-3xl md:text-4xl font-bold mb-4">
           Your Personal Travel Planner
         </h2>
         <p className="text-gray-600 max-w-2xl mx-auto">
-          Ask anything about traveling to the Dominican Republic and get instant, research-backed recommendations tailored to your preferences.
+          Ask anything about traveling to the Dominican Republic and get instant, research-backed recommendations tailored to your preferences using OpenAI's advanced reasoning capabilities.
         </p>
       </div>
       
@@ -116,13 +138,26 @@ const ChatInterface = () => {
                   className={`max-w-[80%] rounded-2xl px-4 py-3 ${
                     chat.sender === 'user'
                       ? 'bg-ocean-500 text-white rounded-tr-none'
+                      : chat.isThinking
+                      ? 'bg-purple-100 text-purple-800 rounded-tl-none'
                       : 'bg-gray-100 text-gray-800 rounded-tl-none'
                   }`}
                 >
-                  <p>{chat.message}</p>
+                  {chat.isThinking ? (
+                    <div className="flex items-center gap-2">
+                      <Brain className="w-4 h-4 text-purple-500" />
+                      <p>{chat.message}</p>
+                    </div>
+                  ) : (
+                    <p>{chat.message}</p>
+                  )}
                   <div
                     className={`text-xs mt-1 ${
-                      chat.sender === 'user' ? 'text-white/70' : 'text-gray-500'
+                      chat.sender === 'user' 
+                        ? 'text-white/70' 
+                        : chat.isThinking
+                        ? 'text-purple-500'
+                        : 'text-gray-500'
                     }`}
                   >
                     {chat.timestamp.toLocaleTimeString([], {
@@ -134,11 +169,11 @@ const ChatInterface = () => {
               </div>
             ))}
             
-            {isQuerying && (
+            {isQuerying && !chatHistory.some(chat => chat.isThinking) && (
               <div className="flex justify-start">
-                <div className="bg-gray-100 rounded-2xl rounded-tl-none px-4 py-3 flex items-center gap-2">
-                  <Loader2 className="w-4 h-4 animate-spin text-ocean-500" />
-                  <span className="text-gray-600">Researching the best options for you...</span>
+                <div className="bg-purple-100 rounded-2xl rounded-tl-none px-4 py-3 flex items-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin text-purple-500" />
+                  <span className="text-purple-800">Researching the best options for you using OpenAI's reasoning technology...</span>
                 </div>
               </div>
             )}

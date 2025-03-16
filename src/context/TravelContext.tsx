@@ -1,5 +1,6 @@
 
 import React, { createContext, useContext, useState, ReactNode, useCallback } from 'react';
+import { performDeepResearch } from '../utils/openai';
 
 // Define the types for our context
 type TravelPreference = 'adventure' | 'beach' | 'cultural' | 'luxury' | 'budget' | 'family' | 'solo' | null;
@@ -75,45 +76,65 @@ export const TravelProvider = ({ children }: { children: ReactNode }) => {
 
   const submitTravelQuery = useCallback(async (query?: string) => {
     setIsQuerying(true);
-    // Mock response for now - in a real implementation, we would call our OpenAI API here
-    setTravelResponse({
-      summary: "Discover pristine beaches, vibrant culture, and adventurous activities in Punta Cana, perfect for your family vacation on a mid-range budget.",
-      details: "Punta Cana offers the perfect blend of family-friendly amenities and natural beauty. With over 20 miles of white-sand beaches and crystal-clear waters, it's ideal for swimming, snorkeling, and beach relaxation. Most resorts offer all-inclusive packages with kids' clubs and family activities, making it easy to balance adult relaxation with children's entertainment.",
-      prosAndCons: {
-        pros: [
-          "Exceptional beach quality and safety",
-          "Wide range of all-inclusive family resorts",
-          "Direct flights from many international destinations",
-          "Generally safe environment for tourists"
-        ],
-        cons: [
-          "Limited authentic Dominican culture in resort areas",
-          "Extra activities can add up beyond all-inclusive packages",
-          "Beach vendors can be persistent in some areas",
-          "Summer months can be very hot and humid"
-        ]
-      },
-      recommendations: {
-        places: ["Bávaro Beach", "Indigenous Eyes Ecological Park", "Isla Saona", "Hoyo Azul Cenote"],
-        activities: ["Catamaran sailing trip", "Dolphin Island excursion", "Chocolate making workshop", "Horseback riding on the beach"],
-        accommodations: ["Barceló Bávaro Palace", "Dreams Punta Cana", "Grand Sirenis Punta Cana", "Nickelodeon Hotels & Resorts"],
-        restaurants: ["Jellyfish Restaurant", "Citrus Restaurant", "La Yola", "Chic Cabaret & Restaurant"]
-      },
-      safetytips: [
-        "Stay within resort areas at night",
-        "Use resort transportation for excursions",
-        "Keep valuables in room safes",
-        "Apply reef-safe sunscreen generously"
-      ],
-      loading: false,
-      error: null
-    });
     
-    // Simulate API delay
-    setTimeout(() => {
+    try {
+      // Prepare parameters for the API call
+      const queryParams = {
+        query: query || customQuery || '',
+        preferences: preferences.length > 0 ? preferences as string[] : undefined,
+        regions: regions.length > 0 ? regions as string[] : undefined,
+        budget: budget,
+        companions: travelCompanions
+      };
+      
+      // Call the OpenAI integration
+      const response = await performDeepResearch(queryParams);
+      
+      if (response.success) {
+        setTravelResponse(response.data);
+      } else {
+        setTravelResponse({
+          summary: "Sorry, I couldn't complete your travel research.",
+          details: "There was an error processing your request. Please try again with different parameters.",
+          prosAndCons: {
+            pros: [],
+            cons: []
+          },
+          recommendations: {
+            places: [],
+            activities: [],
+            accommodations: [],
+            restaurants: []
+          },
+          safetytips: [],
+          loading: false,
+          error: response.error || "Unknown error"
+        });
+      }
+    } catch (error) {
+      console.error("Error in submitTravelQuery:", error);
+      
+      setTravelResponse({
+        summary: "An unexpected error occurred.",
+        details: "We encountered a technical issue while processing your request. Please try again later.",
+        prosAndCons: {
+          pros: [],
+          cons: []
+        },
+        recommendations: {
+          places: [],
+          activities: [],
+          accommodations: [],
+          restaurants: []
+        },
+        safetytips: [],
+        loading: false,
+        error: "Technical error"
+      });
+    } finally {
       setIsQuerying(false);
-    }, 2000);
-  }, []);
+    }
+  }, [preferences, regions, budget, travelCompanions, customQuery]);
 
   const clearResponse = useCallback(() => {
     setTravelResponse(null);
