@@ -20,8 +20,8 @@ interface TravelResponse {
     restaurants: string[];
   };
   safetytips: string[];
-  loading: boolean;
-  error: string | null;
+  loading?: boolean;
+  error?: string | null;
 }
 
 interface TravelContextType {
@@ -91,7 +91,12 @@ export const TravelProvider = ({ children }: { children: ReactNode }) => {
       const response = await performDeepResearch(queryParams);
       
       if (response.success) {
-        setTravelResponse(response.data);
+        // Add loading and error properties to match the TravelResponse interface
+        setTravelResponse({
+          ...response.data,
+          loading: false,
+          error: null
+        });
       } else {
         setTravelResponse({
           summary: "Sorry, I couldn't complete your travel research.",

@@ -10,9 +10,26 @@ interface ResearchQueryParams {
   companions?: string;
 }
 
+interface TravelPlanResponse {
+  summary: string;
+  details: string;
+  prosAndCons: {
+    pros: string[];
+    cons: string[];
+  };
+  recommendations: {
+    places: string[];
+    activities: string[];
+    accommodations: string[];
+    restaurants: string[];
+  };
+  safetytips: string[];
+}
+
 // Initialize the OpenAI client
 const openai = new OpenAI({
   apiKey: "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",
+  dangerouslyAllowBrowser: true // Required for browser environments
 });
 
 export const performDeepResearch = async (params: ResearchQueryParams) => {
@@ -22,7 +39,7 @@ export const performDeepResearch = async (params: ResearchQueryParams) => {
     // Construct the prompt using the user's parameters
     const prompt = constructPrompt(params);
     
-    // Make an actual call to the OpenAI Responses API
+    // Make a call to the OpenAI Responses API
     const response = await openai.responses.create({
       model: "o3-mini",
       reasoning: { effort: "medium" },
@@ -41,7 +58,7 @@ export const performDeepResearch = async (params: ResearchQueryParams) => {
     if (response.status === "success") {
       return {
         success: true,
-        data: processApiResponse(response, params)
+        data: processApiResponse(response)
       };
     } else if (response.status === "incomplete") {
       console.warn("Incomplete response:", response.incomplete_details);
@@ -49,7 +66,7 @@ export const performDeepResearch = async (params: ResearchQueryParams) => {
       if (response.output_text) {
         return {
           success: true,
-          data: processApiResponse({ ...response, output_text: response.output_text }, params)
+          data: processApiResponse(response)
         };
       } else {
         return {
@@ -57,13 +74,13 @@ export const performDeepResearch = async (params: ResearchQueryParams) => {
           error: "The research query was too complex. Please try a simpler request."
         };
       }
+    } else {
+      // Fallback to mock data if response processing fails
+      return {
+        success: true,
+        data: generateMockResponse(params)
+      };
     }
-    
-    // Fallback to mock data if response processing fails
-    return {
-      success: true,
-      data: generateMockResponse(params)
-    };
   } catch (error) {
     console.error("Error performing deep research:", error);
     return {
@@ -125,19 +142,15 @@ const constructPrompt = (params: ResearchQueryParams) => {
 };
 
 // Process the API response and extract structured data
-const processApiResponse = (apiResponse: any, params: ResearchQueryParams) => {
+const processApiResponse = (apiResponse: any): TravelPlanResponse => {
   try {
     if (!apiResponse.output_text) {
-      return generateMockResponse(params);
+      throw new Error("No output text in API response");
     }
     
     const output = apiResponse.output_text;
     
     // Extract data using string parsing
-    // This is a basic implementation - in a production app,
-    // you might want to use more sophisticated parsing or have the API
-    // return data in a specific format
-    
     const summary = extractSection(output, "Summary:", "Details:") || 
       "Personalized travel recommendations for the Dominican Republic.";
     
@@ -189,7 +202,7 @@ const processApiResponse = (apiResponse: any, params: ResearchQueryParams) => {
     };
   } catch (error) {
     console.error("Error processing API response:", error);
-    return generateMockResponse(params);
+    return generateMockResponse({ query: "fallback" });
   }
 };
 
@@ -232,7 +245,7 @@ const extractListItems = (text: string): string[] => {
 };
 
 // Generate mock response based on input parameters (fallback if API parsing fails)
-const generateMockResponse = (params: ResearchQueryParams) => {
+const generateMockResponse = (params: ResearchQueryParams): TravelPlanResponse => {
   const { query, preferences, regions, budget, companions } = params;
   
   // Create a more tailored response based on the input parameters
@@ -330,8 +343,6 @@ const generateMockResponse = (params: ResearchQueryParams) => {
       `Stay hydrated and use reef-safe sunscreen`,
       `Be cautious when withdrawing money from ATMs, especially at night`,
       `Learn basic Spanish phrases for emergencies`
-    ],
-    loading: false,
-    error: null
+    ]
   };
 };
