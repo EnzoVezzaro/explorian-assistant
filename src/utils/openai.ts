@@ -2,6 +2,7 @@
 // OpenAI integration for the Deep Research and Reasoning API
 import OpenAI from "openai";
 import { type ResponseStatus } from "openai/resources/responses";
+import axios from 'axios';
 
 interface ResearchQueryParams {
   query: string;
@@ -28,10 +29,14 @@ interface TravelPlanResponse {
 }
 
 // Initialize the OpenAI client
+/*
 const openai = new OpenAI({
-  apiKey: "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",
+  apiKey: "XXX",
   dangerouslyAllowBrowser: true // Required for browser environments
 });
+*/
+const OPENAI_API_KEY = import.meta.env.VITE_GROK_API_KEY;
+const API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
 // Schema for structured output
 const travelPlanSchema = {
@@ -59,6 +64,7 @@ const travelPlanSchema = {
           description: "List of considerations or downsides for this travel plan"
         }
       },
+      additionalProperties: false,
       required: ["pros", "cons"]
     },
     recommendations: {
@@ -66,25 +72,50 @@ const travelPlanSchema = {
       properties: {
         places: {
           type: "array",
-          items: { type: "string" },
-          description: "List of 5 recommended places to visit"
+          items: {
+            type: "object",
+            properties: {
+              name: { type: "string", description: "Name of the recommended place" },
+              link: { type: "string", format: "uri", description: "Official website or relevant link for the place" }
+            }
+          },
+          description: "List of 5 recommended places to visit, including links for more details"
         },
-        activities: {
-          type: "array",
-          items: { type: "string" },
-          description: "List of 5 recommended activities"
+        "activities": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string", "description": "Name of the recommended activity" },
+              "link": { "type": "string", "format": "uri", "description": "Official website or relevant link for more details" }
+            }
+          },
+          "description": "List of 5 recommended activities with links"
         },
-        accommodations: {
-          type: "array",
-          items: { type: "string" },
-          description: "List of 5 recommended places to stay"
+        "accommodations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string", "description": "Name of the recommended place to stay" },
+              "link": { "type": "string", "format": "uri", "description": "Booking website or official link for reservations" }
+            }
+          },
+          "description": "List of 5 recommended places to stay with links"
         },
-        restaurants: {
-          type: "array",
-          items: { type: "string" },
-          description: "List of 5 recommended dining options"
+        "restaurants": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string", "description": "Name of the recommended dining option" },
+              "link": { "type": "string", "format": "uri", "description": "Official website, menu, or review link" }
+            }
+          },
+          "description": "List of 5 recommended dining options with links"
         }
       },
+      additionalProperties: false,
       required: ["places", "activities", "accommodations", "restaurants"]
     },
     safetytips: {
@@ -104,9 +135,10 @@ export const performDeepResearch = async (params: ResearchQueryParams) => {
     // Construct the prompt using the user's parameters
     const prompt = constructPrompt(params);
     
+    /*
     // Make a call to the OpenAI Responses API with structured output
     const response = await openai.responses.create({
-      model: "o3-mini",
+      model: "llama-3.3-70b-versatile",
       reasoning: { effort: "medium" },
       input: [
         {
@@ -129,12 +161,42 @@ export const performDeepResearch = async (params: ResearchQueryParams) => {
     });
     
     console.log("OpenAI API response received:", response);
+    */
+    // Segunda solicitud a Groq para formatear en JSON estructurado
+    const jsonFormatRequest = {
+      messages: [
+        { 
+          role: "system", 
+          content: `Convert the following extracted medical data into a structured JSON format according to this schema:\n${JSON.stringify(travelPlanSchema)}` 
+        },
+        { 
+          role: "user", 
+          content: JSON.stringify(prompt) 
+        }
+      ],
+      model: "llama-3.3-70b-versatile",
+      temperature: 0,
+      stream: false,
+      response_format: { type: "json_object" },
+    };
+
+    const jsonResponse = await axios.post(API_URL, jsonFormatRequest, {
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${OPENAI_API_KEY}`
+      }
+    });
+
+    console.log('resp: ', jsonResponse);
+    
     
     // Process the API response
-    if (response.status === "success" as ResponseStatus) {
+    if (jsonResponse.data) {
       try {
         // Parse the structured JSON output
-        const travelPlan = JSON.parse(response.output_text) as TravelPlanResponse;
+        const travelPlan = JSON.parse(jsonResponse.data.choices[0].message.content) as TravelPlanResponse;
+        console.log('travelPlan: ', travelPlan);
+        
         return {
           success: true,
           data: travelPlan
@@ -143,17 +205,17 @@ export const performDeepResearch = async (params: ResearchQueryParams) => {
         console.error("Error parsing JSON response:", parseError);
         // Fallback to text extraction if JSON parsing fails
         return {
-          success: true,
-          data: processApiResponse(response)
+          success: true,  
+          data: processApiResponse(jsonResponse.data)
         };
       }
-    } else if (response.status === "incomplete" as ResponseStatus) {
-      console.warn("Incomplete response:", response.incomplete_details);
+    } else if (jsonResponse.data.status === "incomplete" as ResponseStatus) {
+      console.warn("Incomplete response:", jsonResponse.data.incomplete_details);
       // Return partial data if available
-      if (response.output_text) {
+      if (jsonResponse.data.output_text) {
         try {
           // Attempt to parse potentially incomplete JSON
-          const travelPlan = JSON.parse(response.output_text) as TravelPlanResponse;
+          const travelPlan = JSON.parse(jsonResponse.data.output_text) as TravelPlanResponse;
           return {
             success: true,
             data: travelPlan
@@ -162,7 +224,7 @@ export const performDeepResearch = async (params: ResearchQueryParams) => {
           // Fall back to text extraction
           return {
             success: true,
-            data: processApiResponse(response)
+            data: processApiResponse(jsonResponse.data)
           };
         }
       } else {

@@ -14,10 +14,10 @@ interface TravelResponse {
     cons: string[];
   };
   recommendations: {
-    places: string[];
-    activities: string[];
-    accommodations: string[];
-    restaurants: string[];
+    places: { name: string; link: string }[];
+    activities: { name: string; link: string }[];
+    accommodations: { name: string; link: string }[];
+    restaurants: { name: string; link: string }[];
   };
   safetytips: string[];
   loading?: boolean;

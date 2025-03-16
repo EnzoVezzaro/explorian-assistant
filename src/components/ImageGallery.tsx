@@ -1,5 +1,6 @@
 
 import React, { useEffect, useRef } from 'react';
+import { useTravelContext } from '../context/TravelContext';
 
 interface ImageGalleryProps {
   images: {
@@ -11,6 +12,18 @@ interface ImageGalleryProps {
 
 const ImageGallery: React.FC<ImageGalleryProps> = ({ images }) => {
   const galleryRef = useRef<HTMLDivElement>(null);
+
+  const { submitTravelQuery } = useTravelContext();
+
+  const handleImageClick = (location: string) => {
+    console.log('Location clicked:', location);
+    
+    submitTravelQuery(location);
+    const assistantElement = document.getElementById('assistant');
+    if (assistantElement) {
+      assistantElement.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -62,7 +75,8 @@ const ImageGallery: React.FC<ImageGalleryProps> = ({ images }) => {
         {images.map((image, index) => (
           <div
             key={index}
-            className="gallery-image animate-on-scroll overflow-hidden rounded-xl shadow-soft relative group"
+            className="gallery-image cursor-pointer animate-on-scroll overflow-hidden rounded-xl shadow-soft relative group"
+            onClick={() => handleImageClick(image.location)}
           >
             <img
               src={image.src}

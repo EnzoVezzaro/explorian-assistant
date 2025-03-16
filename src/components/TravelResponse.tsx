@@ -99,7 +99,7 @@ const TravelResponse = () => {
                 </h4>
                 <ul className="space-y-2">
                   {travelResponse.recommendations.places.map((place, index) => (
-                    <li key={index} className="text-gray-700">{place}</li>
+                    <li key={index} className="text-gray-700">{place.name} - <a href={place.link} className='text-blue-600' target="_blank" rel="noopener noreferrer">{'link'}</a></li>
                   ))}
                 </ul>
               </div>
@@ -111,7 +111,7 @@ const TravelResponse = () => {
                 </h4>
                 <ul className="space-y-2">
                   {travelResponse.recommendations.activities.map((activity, index) => (
-                    <li key={index} className="text-gray-700">{activity}</li>
+                    <li key={index} className="text-gray-700">{activity.name} - <a href={activity.link} className='text-blue-600' target="_blank" rel="noopener noreferrer">{'link'}</a></li>
                   ))}
                 </ul>
               </div>
@@ -123,7 +123,7 @@ const TravelResponse = () => {
                 </h4>
                 <ul className="space-y-2">
                   {travelResponse.recommendations.accommodations.map((accommodation, index) => (
-                    <li key={index} className="text-gray-700">{accommodation}</li>
+                    <li key={index} className="text-gray-700">{accommodation.name} - <a href={accommodation.link} className='text-blue-600' target="_blank" rel="noopener noreferrer">{'link'}</a></li>
                   ))}
                 </ul>
               </div>
@@ -135,7 +135,7 @@ const TravelResponse = () => {
                 </h4>
                 <ul className="space-y-2">
                   {travelResponse.recommendations.restaurants.map((restaurant, index) => (
-                    <li key={index} className="text-gray-700">{restaurant}</li>
+                    <li key={index} className="text-gray-700">{restaurant.name} - <a href={restaurant.link} className='text-blue-600' target="_blank" rel="noopener noreferrer">{'link'}</a></li>
                   ))}
                 </ul>
               </div>
