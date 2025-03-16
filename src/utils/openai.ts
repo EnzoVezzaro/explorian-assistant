@@ -1,6 +1,7 @@
 
 // OpenAI integration for the Deep Research and Reasoning API
 import OpenAI from "openai";
+import { type ResponseStatus } from "openai/resources/responses";
 
 interface ResearchQueryParams {
   query: string;
@@ -28,9 +29,73 @@ interface TravelPlanResponse {
 
 // Initialize the OpenAI client
 const openai = new OpenAI({
-  apiKey: "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",
+  apiKey: "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",
   dangerouslyAllowBrowser: true // Required for browser environments
 });
+
+// Schema for structured output
+const travelPlanSchema = {
+  type: "object",
+  properties: {
+    summary: { 
+      type: "string",
+      description: "A brief 2-3 sentence overview of the travel recommendation" 
+    },
+    details: { 
+      type: "string",
+      description: "A detailed explanation of the travel recommendation" 
+    },
+    prosAndCons: {
+      type: "object",
+      properties: {
+        pros: {
+          type: "array",
+          items: { type: "string" },
+          description: "List of advantages for this travel plan"
+        },
+        cons: {
+          type: "array",
+          items: { type: "string" },
+          description: "List of considerations or downsides for this travel plan"
+        }
+      },
+      required: ["pros", "cons"]
+    },
+    recommendations: {
+      type: "object",
+      properties: {
+        places: {
+          type: "array",
+          items: { type: "string" },
+          description: "List of 5 recommended places to visit"
+        },
+        activities: {
+          type: "array",
+          items: { type: "string" },
+          description: "List of 5 recommended activities"
+        },
+        accommodations: {
+          type: "array",
+          items: { type: "string" },
+          description: "List of 5 recommended places to stay"
+        },
+        restaurants: {
+          type: "array",
+          items: { type: "string" },
+          description: "List of 5 recommended dining options"
+        }
+      },
+      required: ["places", "activities", "accommodations", "restaurants"]
+    },
+    safetytips: {
+      type: "array", 
+      items: { type: "string" },
+      description: "List of important safety considerations for this travel plan"
+    }
+  },
+  required: ["summary", "details", "prosAndCons", "recommendations", "safetytips"],
+  additionalProperties: false
+};
 
 export const performDeepResearch = async (params: ResearchQueryParams) => {
   console.log("Performing deep research with params:", params);
@@ -39,35 +104,67 @@ export const performDeepResearch = async (params: ResearchQueryParams) => {
     // Construct the prompt using the user's parameters
     const prompt = constructPrompt(params);
     
-    // Make a call to the OpenAI Responses API
+    // Make a call to the OpenAI Responses API with structured output
     const response = await openai.responses.create({
       model: "o3-mini",
       reasoning: { effort: "medium" },
       input: [
+        {
+          role: "system",
+          content: "You are an expert travel advisor for the Dominican Republic. Provide detailed, well-researched travel recommendations."
+        },
         {
           role: "user",
           content: prompt,
         },
       ],
       max_output_tokens: 4000,
+      text: {
+        format: {
+          type: "json_schema",
+          name: "travel_plan",
+          schema: travelPlanSchema
+        }
+      }
     });
     
     console.log("OpenAI API response received:", response);
     
     // Process the API response
-    if (response.status === "success") {
-      return {
-        success: true,
-        data: processApiResponse(response)
-      };
-    } else if (response.status === "incomplete") {
-      console.warn("Incomplete response:", response.incomplete_details);
-      // Return partial data if available
-      if (response.output_text) {
+    if (response.status === "success" as ResponseStatus) {
+      try {
+        // Parse the structured JSON output
+        const travelPlan = JSON.parse(response.output_text) as TravelPlanResponse;
+        return {
+          success: true,
+          data: travelPlan
+        };
+      } catch (parseError) {
+        console.error("Error parsing JSON response:", parseError);
+        // Fallback to text extraction if JSON parsing fails
         return {
           success: true,
           data: processApiResponse(response)
         };
+      }
+    } else if (response.status === "incomplete" as ResponseStatus) {
+      console.warn("Incomplete response:", response.incomplete_details);
+      // Return partial data if available
+      if (response.output_text) {
+        try {
+          // Attempt to parse potentially incomplete JSON
+          const travelPlan = JSON.parse(response.output_text) as TravelPlanResponse;
+          return {
+            success: true,
+            data: travelPlan
+          };
+        } catch (parseError) {
+          // Fall back to text extraction
+          return {
+            success: true,
+            data: processApiResponse(response)
+          };
+        }
       } else {
         return {
           success: false,
@@ -94,7 +191,7 @@ export const performDeepResearch = async (params: ResearchQueryParams) => {
 const constructPrompt = (params: ResearchQueryParams) => {
   const { query, preferences, regions, budget, companions } = params;
   
-  let prompt = `As a travel expert for the Dominican Republic, I need a comprehensive travel plan based on the following criteria:\n\n`;
+  let prompt = `I need a comprehensive travel plan for the Dominican Republic based on the following criteria:\n\n`;
   
   if (query) {
     prompt += `User query: ${query}\n\n`;
@@ -116,32 +213,12 @@ const constructPrompt = (params: ResearchQueryParams) => {
     prompt += `Traveling with: ${companions}\n`;
   }
   
-  prompt += `\nPlease provide a comprehensive travel plan with the following information:
-  1. A concise summary (2-3 sentences)
-  2. Detailed explanation of the recommendation
-  3. Pros and cons of this travel plan
-  4. Specific recommendations for:
-     - Places to visit
-     - Activities to do
-     - Accommodations
-     - Restaurants
-  5. Safety tips relevant to this travel plan
-  
-  Format the response in a structured way that I can parse as follows:
-  - Summary: [2-3 sentence overview]
-  - Details: [longer explanation]
-  - Pros: [list of advantages]
-  - Cons: [list of considerations]
-  - Places to Visit: [list of 5 locations]
-  - Activities: [list of 5 activities]
-  - Accommodations: [list of 5 places to stay]
-  - Restaurants: [list of 5 dining options]
-  - Safety Tips: [list of 6 important safety considerations]`;
+  prompt += `\nProvide a comprehensive travel plan with specific details for places to visit, activities, accommodations, restaurants, and safety tips.`;
   
   return prompt;
 };
 
-// Process the API response and extract structured data
+// Process the API response and extract structured data when JSON parsing fails
 const processApiResponse = (apiResponse: any): TravelPlanResponse => {
   try {
     if (!apiResponse.output_text) {
