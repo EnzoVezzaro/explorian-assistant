@@ -1,6 +1,7 @@
 
 import React, { useEffect, useRef } from 'react';
 import { ChevronDown } from 'lucide-react';
+import coverImage from "./img/cover.png";
 
 const Hero = () => {
   const heroRef = useRef<HTMLDivElement>(null);
@@ -29,8 +30,10 @@ const Hero = () => {
       ref={heroRef}
       className="relative h-screen bg-cover bg-center flex items-center justify-center"
       style={{
-        backgroundImage: "linear-gradient(rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.3)), url('https://images.unsplash.com/photo-1580553561519-d640f64e7711?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80')",
-        backgroundAttachment: "fixed"
+        backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.3)), url("/img/cover.jpg")`,
+        backgroundPosition: "center bottom",
+        backgroundSize: "cover",
+        backgroundRepeat: "no-repeat",
       }}
     >
       <div className="container mx-auto px-6 md:px-8 text-center">
